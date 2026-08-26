@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["filetransfer"]
+
+[project]
+name = "filetransfer"
+version = "1.0.0"
+description = "局域网点对点文件/文件夹传输工具（CLI + PyQt6 GUI）"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "pyqt6>=6.11.0",
+]
+
+[project.scripts]
+ft = "filetransfer.cli:main"
+ft-gui = "filetransfer.gui:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
