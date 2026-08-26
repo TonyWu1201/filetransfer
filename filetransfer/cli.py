@@ -1,5 +1,6 @@
 import argparse
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -49,11 +50,13 @@ def cmd_send(args) -> int:
     paths = [Path(p) for p in args.path]
     host = args.to
     started = time.monotonic()
+    progress_lock = threading.Lock()
 
     def progress(sent, total, rel, done, size):
         if args.quiet:
             return
-        _progress_line(sent, total, rel, done, size)
+        with progress_lock:
+            _progress_line(sent, total, rel, done, size)
 
     def log(msg: str) -> None:
         if not args.quiet:

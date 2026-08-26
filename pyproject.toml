@@ -7,7 +7,7 @@ packages = ["filetransfer"]
 
 [project]
 name = "filetransfer"
-version = "1.1.0"
+version = "1.1.1"
 description = "局域网点对点文件/文件夹传输工具（CLI + PyQt6 GUI）"
 readme = "README.md"
 requires-python = ">=3.14"

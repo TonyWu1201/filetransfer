@@ -126,9 +126,9 @@ def _send_parallel(conns: list, tasks: list, total_size: int, progress, log) -> 
                         conn.sendall(chunk)
                         with lock:
                             sent[0] += len(chunk)
+                            if progress:
+                                progress(sent[0], total_size, rel, offset + length - remaining, size)
                         remaining -= len(chunk)
-                        if progress:
-                            progress(sent[0], total_size, rel, offset + length - remaining, size)
         except BaseException as exc:
             errors.append(exc)
             for c in conns:

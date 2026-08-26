@@ -229,11 +229,14 @@ class FileTransferServer:
                             entry = session.files.get(rel)
                             if entry is not None:
                                 entry["received"] += len(chunk)
+                                file_done = entry["received"]
+                            else:
+                                file_done = offset + size - remaining
+                            if self.on_progress:
+                                self.on_progress(
+                                    session, received, rel, file_done, total_size
+                                )
                         remaining -= len(chunk)
-                        if self.on_progress:
-                            self.on_progress(
-                                session, received, rel, offset + size - remaining, total_size
-                            )
                 if self.log:
                     with session.lock:
                         entry = session.files.get(rel)

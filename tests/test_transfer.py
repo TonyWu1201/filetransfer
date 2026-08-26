@@ -163,6 +163,33 @@ def test_join_with_invalid_token_declined(server):
         assert recv_frame(sock)["type"] == "decline"
 
 
+def test_multistream_progress_monotonic(server, tmp_path):
+    from filetransfer.sender import SPLIT_THRESHOLD
+
+    f = tmp_path / "big.bin"
+    f.write_bytes(bytes(1024) * (SPLIT_THRESHOLD // 1024))
+    f2 = tmp_path / "other.bin"
+    f2.write_bytes(bytes(1024) * (4 * 1024))
+
+    send_events = []
+    recv_events = {}
+
+    def progress(sent, total, rel, done, size):
+        send_events.append(sent)
+
+    server.on_progress = lambda s, r, c, d, z: recv_events.setdefault(c, []).append((d, z))
+
+    send_transfer("127.0.0.1", [f, f2], port=server.port, progress=progress, streams=4)
+
+    assert send_events == sorted(send_events)
+    assert send_events[-1] == f.stat().st_size + f2.stat().st_size
+
+    for rel, events in recv_events.items():
+        dones = [d for d, _ in events]
+        assert dones == sorted(dones)
+        assert events[-1][0] == events[-1][1]
+
+
 def test_decline(tmp_path):
     srv = FileTransferServer(port=free_port(), out_dir=tmp_path / "out")
     srv.start()
