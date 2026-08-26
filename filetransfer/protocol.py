@@ -2,7 +2,7 @@ import json
 import socket
 import struct
 
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 MAX_FRAME = 64 * 1024
 
 PREFIX = struct.Struct("!I")

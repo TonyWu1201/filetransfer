@@ -20,7 +20,7 @@ uv sync
 ## 命令行用法
 
 ```bash
-# 机器 A：启动接收（默认端口 54546，文件保存在当前目录）
+# 机器 A：启动接收（默认端口 54546，文件保存在 receive/当天日期/，如 receive/20260826/）
 uv run ft receive
 uv run ft receive --port 60000 --out D:\received
 

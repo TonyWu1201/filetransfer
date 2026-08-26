@@ -31,7 +31,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from . import DEFAULT_PORT, format_size, format_size_pair
+from . import DEFAULT_PORT, default_out_dir, format_size, format_size_pair
 from .discovery import DiscoveryServer, get_local_ip, scan
 from .receiver import FileTransferServer, TransferSession
 from .sender import TransferError, send_transfer
@@ -159,7 +159,7 @@ class App(QMainWindow):
         self.port_spin.valueChanged.connect(lambda _: self._refresh_status())
         ctrl_layout.addWidget(self.port_spin, 0, 1)
         ctrl_layout.addWidget(QLabel("保存到:"), 0, 2)
-        self.out_edit = QLineEdit(str(Path.cwd()))
+        self.out_edit = QLineEdit(str(default_out_dir()))
         ctrl_layout.addWidget(self.out_edit, 0, 3)
         browse = QPushButton("浏览...")
         browse.setMinimumWidth(88)

@@ -90,6 +90,79 @@ def test_large_file_progress(server, tmp_path):
     assert (server.out_dir / "big.bin").read_bytes() == f.read_bytes()
 
 
+def test_multistream_splits_large_file(server, tmp_path):
+    from filetransfer.sender import SPLIT_THRESHOLD
+
+    f = tmp_path / "big.bin"
+    data = bytes(1024) * (SPLIT_THRESHOLD // 1024 + 1024)
+    f.write_bytes(data)
+    send_transfer("127.0.0.1", [f], port=server.port, streams=4)
+    assert (server.out_dir / "big.bin").read_bytes() == data
+
+
+def test_multistream_many_files(server, tmp_path):
+    src = tmp_path / "src"
+    make_tree(src)
+    for i in range(8):
+        (src / f"f{i}.bin").write_bytes(bytes([i]) * (1024 * 1024 + i))
+    send_transfer("127.0.0.1", [src], port=server.port, streams=4)
+    out = server.out_dir / "src"
+    for i in range(8):
+        assert (out / f"f{i}.bin").read_bytes() == bytes([i]) * (1024 * 1024 + i)
+    assert (out / "a.txt").read_text() == "hello"
+    assert (out / "sub" / "nested" / "c.bin").read_bytes() == bytes(range(256)) * 4096
+
+
+def test_fallback_to_single_stream_for_old_receiver(tmp_path):
+    port = free_port()
+    srv_sock = socket.socket()
+    srv_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv_sock.bind(("127.0.0.1", port))
+    srv_sock.listen(5)
+    srv_sock.settimeout(10)
+    received = {}
+
+    def serve():
+        conn, _ = srv_sock.accept()
+        with conn:
+            hello = recv_frame(conn)
+            assert hello.get("streams") == 4
+            send_frame(conn, {"type": "accept"})
+            while True:
+                frame = recv_frame(conn)
+                if frame["type"] == "file":
+                    remaining = frame["size"]
+                    data = bytearray()
+                    while remaining > 0:
+                        chunk = conn.recv(min(65536, remaining))
+                        if not chunk:
+                            break
+                        data.extend(chunk)
+                        remaining -= len(chunk)
+                    received[frame["path"]] = bytes(data)
+                elif frame["type"] == "done":
+                    send_frame(conn, {"type": "ack"})
+                    break
+
+    t = threading.Thread(target=serve)
+    t.start()
+    f1 = tmp_path / "a.bin"
+    f1.write_bytes(b"x" * 100000)
+    f2 = tmp_path / "b.bin"
+    f2.write_bytes(b"y" * 200000)
+    send_transfer("127.0.0.1", [f1, f2], port=port, streams=4)
+    t.join(timeout=10)
+    srv_sock.close()
+    assert received["a.bin"] == f1.read_bytes()
+    assert received["b.bin"] == f2.read_bytes()
+
+
+def test_join_with_invalid_token_declined(server):
+    with socket.create_connection(("127.0.0.1", server.port)) as sock:
+        send_frame(sock, {"type": "join", "token": "nope"})
+        assert recv_frame(sock)["type"] == "decline"
+
+
 def test_decline(tmp_path):
     srv = FileTransferServer(port=free_port(), out_dir=tmp_path / "out")
     srv.start()

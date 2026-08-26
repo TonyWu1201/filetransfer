@@ -1,10 +1,18 @@
 """局域网点对点文件传输工具。"""
 
-__version__ = "0.1.0"
+import time
+from pathlib import Path
+
+__version__ = "1.1.0"
 
 DEFAULT_PORT = 54546
 DISCOVERY_PORT = 54545
 CHUNK_SIZE = 1024 * 1024
+
+
+def default_out_dir() -> Path:
+    """默认接收保存目录: receive/<YYYYMMDD>。"""
+    return Path("receive") / time.strftime("%Y%m%d")
 
 _SIZE_UNITS = ("B", "KB", "MB", "GB", "TB")
 

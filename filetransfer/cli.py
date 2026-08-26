@@ -3,7 +3,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import DEFAULT_PORT, __version__, format_size, format_size_pair, format_speed
+from . import DEFAULT_PORT, __version__, default_out_dir, format_size, format_size_pair, format_speed
 from .discovery import DiscoveryServer, get_local_ip, scan
 from .receiver import FileTransferServer
 from .sender import TransferError, send_transfer
@@ -23,10 +23,10 @@ def cmd_receive(args) -> int:
     def log(msg: str) -> None:
         print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
-    out = Path(args.out)
+    out = Path(args.out) if args.out else default_out_dir()
     out.mkdir(parents=True, exist_ok=True)
     server = FileTransferServer(
-        port=args.port, out_dir=out, auto_accept=True, log=log
+        port=args.port, out_dir=out, auto_accept=True, log=log, max_streams=args.max_streams
     )
     server.start()
     discovery = DiscoveryServer("receive", args.port)
@@ -60,7 +60,7 @@ def cmd_send(args) -> int:
             print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
     try:
-        total = send_transfer(host, paths, port=args.port, progress=progress, log=log)
+        total = send_transfer(host, paths, port=args.port, progress=progress, log=log, streams=args.streams)
     except (TransferError, OSError) as exc:
         print(f"\n发送失败: {exc}", file=sys.stderr)
         return 1
@@ -96,12 +96,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_send.add_argument("path", nargs="+", help="要发送的文件或文件夹路径（可多个）")
     p_send.add_argument("--to", required=True, help="目标主机 IP 或主机名")
     p_send.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"目标端口（默认 {DEFAULT_PORT}）")
+    p_send.add_argument("--streams", type=int, default=4, help="并行连接数（默认 4，仅新版接收方支持，旧版自动回退单连接）")
     p_send.add_argument("-q", "--quiet", action="store_true", help="不显示进度和日志")
     p_send.set_defaults(func=cmd_send)
 
     p_recv = sub.add_parser("receive", help="启动接收服务")
     p_recv.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"监听端口（默认 {DEFAULT_PORT}）")
-    p_recv.add_argument("--out", default=".", help="保存目录（默认当前目录）")
+    p_recv.add_argument("--out", default=None, help="保存目录（默认 receive/YYYYMMDD/）")
+    p_recv.add_argument("--max-streams", type=int, default=4, help="允许的最大并行连接数（默认 4）")
     p_recv.set_defaults(func=cmd_receive)
 
     p_list = sub.add_parser("list", help="扫描局域网内的在线设备")
