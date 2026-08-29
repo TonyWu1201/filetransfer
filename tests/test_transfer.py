@@ -219,6 +219,21 @@ def test_path_traversal_blocked(server):
     assert not (server.out_dir.parent / "escape.txt").exists()
 
 
+def test_windows_backslash_paths(server):
+    with socket.create_connection(("127.0.0.1", server.port)) as sock:
+        send_frame(sock, {"type": "hello", "name": "win", "version": 2})
+        assert recv_frame(sock)["type"] == "accept"
+        send_frame(sock, {"type": "dir", "path": "win\\sub\\nested"})
+        send_frame(sock, {"type": "file", "path": "win\\sub\\a.txt", "size": 5})
+        sock.sendall(b"hello")
+        send_frame(sock, {"type": "file", "path": "win\\b.txt", "size": 5})
+        sock.sendall(b"world")
+        send_frame(sock, {"type": "done"})
+        assert recv_frame(sock)["type"] == "ack"
+    assert (server.out_dir / "win" / "sub" / "a.txt").read_text() == "hello"
+    assert (server.out_dir / "win" / "b.txt").read_text() == "world"
+
+
 def test_discovery_responds(monkeypatch):
     name, port = "test-host", free_port()
     srv = discovery.DiscoveryServer(name, port, ip="127.0.0.1")

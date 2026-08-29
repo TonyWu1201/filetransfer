@@ -169,7 +169,7 @@ def send_transfer(
     entries = []
     total_size = 0
     for root, file, is_dir in _iter_entries(paths):
-        rel = str(file.relative_to(root))
+        rel = file.relative_to(root).as_posix()
         if is_dir:
             entries.append(("dir", rel, 0))
         else:

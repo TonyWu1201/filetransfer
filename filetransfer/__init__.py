@@ -3,7 +3,7 @@
 import time
 from pathlib import Path
 
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 
 DEFAULT_PORT = 54546
 DISCOVERY_PORT = 54545

@@ -8,6 +8,7 @@ from .protocol import PROTOCOL_VERSION, ProtocolError, recv_exact, recv_frame, s
 
 
 def _safe_join(out_dir: Path, rel: str) -> Path:
+    rel = rel.replace("\\", "/")
     p = Path(rel)
     if p.is_absolute() or p.drive or ".." in p.parts:
         raise ProtocolError(f"非法路径: {rel}")
