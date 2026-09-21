@@ -463,22 +463,30 @@ class App(QMainWindow):
         event.accept()
 
 
-def main() -> None:
-    app = QApplication(sys.argv)
-    app.setStyle("Fusion")
-    app.setApplicationName("局域网文件传输")
-    app.setStyleSheet(
-        """
+def main_stylesheet() -> str:
+    return """
         QPushButton {
             border: 1px solid #7a7a7a;
             background: #f2f2f2;
+            color: #1a1a1a;
             border-radius: 4px;
             padding: 4px 12px;
         }
-        QPushButton:hover { background: #e6e6e6; }
-        QPushButton:pressed { background: #d9d9d9; }
+        QPushButton:hover { background: #e6e6e6; color: #1a1a1a; }
+        QPushButton:pressed { background: #d9d9d9; color: #1a1a1a; }
+        QPushButton:disabled { color: #8a8a8a; }
         QLineEdit, QComboBox, QListWidget, QTreeWidget, QPlainTextEdit {
             border: 1px solid #7a7a7a;
+            background: #ffffff;
+            color: #1a1a1a;
+            selection-background-color: #2a82da;
+            selection-color: #ffffff;
+        }
+        QComboBox QAbstractItemView {
+            background: #ffffff;
+            color: #1a1a1a;
+            selection-background-color: #2a82da;
+            selection-color: #ffffff;
         }
         QGroupBox {
             border: 1px solid #9a9a9a;
@@ -490,7 +498,13 @@ def main() -> None:
             padding: 0 3px;
         }
         """
-    )
+
+
+def main() -> None:
+    app = QApplication(sys.argv)
+    app.setStyle("Fusion")
+    app.setApplicationName("局域网文件传输")
+    app.setStyleSheet(main_stylesheet())
     window = App()
     window.show()
     app.exec()
