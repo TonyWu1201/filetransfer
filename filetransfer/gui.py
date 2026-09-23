@@ -50,9 +50,8 @@ class App(QMainWindow):
         self.queue: queue.Queue = queue.Queue()
         self.server: FileTransferServer | None = None
         self.discovery: DiscoveryServer | None = None
-        self.transfers: dict[int, str] = {}
         self.pending_items: dict[int, QTreeWidgetItem] = {}
-        self.active_items: dict[int, QTreeWidgetItem] = {}
+        self.active_items: dict[tuple[int, str], QTreeWidgetItem] = {}
         self._scan_stop = threading.Event()
         self._hosts_lock = threading.Lock()
         self.settings = QSettings(str(SETTINGS_FILE), QSettings.Format.IniFormat)
@@ -201,8 +200,8 @@ class App(QMainWindow):
         active_layout = QVBoxLayout(active)
         self.active_tree = QTreeWidget()
         self.active_tree.setColumnCount(4)
-        self.active_tree.setHeaderLabels(["发送方", "当前文件", "大小", "进度", "状态"])
-        self.active_tree.setColumnWidth(0, 150)
+        self.active_tree.setHeaderLabels(["发送方", "文件", "大小", "进度", "状态"])
+        self.active_tree.setColumnWidth(0, 180)
         self.active_tree.setColumnWidth(1, 260)
         self.active_tree.setColumnWidth(2, 140)
         self.active_tree.setColumnWidth(3, 90)
@@ -261,7 +260,9 @@ class App(QMainWindow):
             out_dir=out_dir,
             auto_accept=auto,
             on_request=lambda s: self.queue.put(("request", s)),
-            on_progress=lambda s, r, c, d, z: self.queue.put(("rprogress", s.id, r, c, d, z)),
+            on_progress=lambda s, r, c, d, z: self.queue.put(
+                ("rprogress", s.id, s.sender_name, s.sender_ip, r, c, d, z)
+            ),
             on_done=lambda s: self.queue.put(("rdone", s.id)),
             on_error=lambda ip, e: self.queue.put(("error", f"{ip}: {e}")),
             log=self._log,
@@ -288,6 +289,8 @@ class App(QMainWindow):
         self.recv_button.setText("启动接收")
         self.pending_tree.clear()
         self.pending_items.clear()
+        self.active_tree.clear()
+        self.active_items.clear()
         self._log("接收服务已停止")
         self._refresh_status()
 
@@ -407,25 +410,33 @@ class App(QMainWindow):
                         self.pending_items[session.id] = item
                         self._log(f"收到来自 {session.sender_name} ({session.sender_ip}) 的传输请求")
                 elif kind == "rprogress":
-                    _, sid, received, current, done, size = msg
+                    _, sid, sender, sender_ip, received, current, done, size = msg
                     pct = (done / size * 100) if size else 100.0
-                    item = self.active_items.get(sid)
+                    key = (sid, current)
+                    item = self.active_items.get(key)
                     if item is None:
-                        self.transfers[sid] = current
-                        item = QTreeWidgetItem(["", current, format_size(size), f"{pct:.0f}%", "接收中"])
+                        item = QTreeWidgetItem(
+                            [
+                                f"{sender} ({sender_ip})",
+                                current,
+                                format_size(size),
+                                f"{pct:.0f}%",
+                                "接收中",
+                            ]
+                        )
+                        item.setData(0, Qt.ItemDataRole.UserRole, sid)
                         self.active_tree.addTopLevelItem(item)
-                        self.active_items[sid] = item
+                        self.active_items[key] = item
                     else:
-                        item.setText(1, current)
                         item.setText(2, format_size(size))
                         item.setText(3, f"{pct:.0f}%")
+                    if size and done >= size:
+                        self._finish_active_row(item)
                 elif kind == "rdone":
                     sid = msg[1]
-                    item = self.active_items.get(sid)
-                    if item is not None:
-                        item.setText(3, "100%")
-                        item.setText(4, "完成")
-                        QTimer.singleShot(4000, lambda i=item: self._remove_active_row(i))
+                    for item in list(self.active_items.values()):
+                        if item.data(0, Qt.ItemDataRole.UserRole) == sid:
+                            self._finish_active_row(item)
                 elif kind == "sprogress":
                     _, sent, total, rel = msg
                     pct = (sent / total * 100) if total else 100.0
@@ -449,13 +460,18 @@ class App(QMainWindow):
         except queue.Empty:
             pass
 
+    def _finish_active_row(self, item: QTreeWidgetItem) -> None:
+        item.setText(3, "100%")
+        item.setText(4, "完成")
+        QTimer.singleShot(4000, lambda i=item: self._remove_active_row(i))
+
     def _remove_active_row(self, item: QTreeWidgetItem) -> None:
         idx = self.active_tree.indexOfTopLevelItem(item)
         if idx >= 0:
             self.active_tree.takeTopLevelItem(idx)
-        for sid, it in list(self.active_items.items()):
+        for key, it in list(self.active_items.items()):
             if it is item:
-                del self.active_items[sid]
+                del self.active_items[key]
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self._scan_stop.set()
